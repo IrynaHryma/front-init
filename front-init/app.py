@@ -4,6 +4,9 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import urllib.parse
 import mimetypes
 
+import threading
+
+
 from jinja2 import Environment, FileSystemLoader
 
 BASE_DIR = pathlib.Path(__file__).parent
@@ -11,20 +14,7 @@ DATA_DIR = BASE_DIR / "data"
 
 env = Environment(loader=FileSystemLoader("templates"))
 
-# html = """
-# <!DOCTYPE html>
-# <html lang="en">
-# <head>
-#     <meta charset="UTF-8">
-#     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-#     <title>Document</title>
-# </head>
-# <body>
-#     <h1>Hello world</h1>
-#     <div class="test">Test</div>  
-# </body>
-# </html>
-# """
+
 
 class HTTPHandler(BaseHTTPRequestHandler):
 
@@ -69,22 +59,26 @@ class HTTPHandler(BaseHTTPRequestHandler):
         self.wfile.write(html_content.encode("utf-8"))
     
             
-    def render_template():
-        pass
+    def render_template(self, template_name, context=None):
+        if context is None:
+            context={}
+
+        template = env.get_template(template_name)
+        html_content = template.render(context)
+        return html_content   
 
 
-def send_static(self,file_path):
-    mime_type, _ = mimetypes.guess_type(file_path)
-    if mime_type:
-        self.send_responce(200)
-        self.send_header('Content-Type', mime_type)
-        self.end_headers()
-        with open(file_path, "rb") as f:
-            
-            self.wfile.write(f.read())
-    else:
-            
-        self.send_error("error.html", 404)
+    def send_static(self,file_path):
+        mime_type, _ = mimetypes.guess_type(file_path)
+        if mime_type:
+            self.send_response(200)
+            self.send_header('Content-Type', mime_type)
+            self.end_headers()
+            with open(file_path, "rb") as f:
+                self.wfile.write(f.read())
+        else:
+                
+            self.send_error("error.html", 404)
 
 
 def run(server=HTTPServer, handler=HTTPHandler):
@@ -95,5 +89,13 @@ def run(server=HTTPServer, handler=HTTPHandler):
     except KeyboardInterrupt:
         http_server.server_close()
 
+def start_client():
+    import client
+    client.main()
+
 if __name__ == "__main__":
-    run()
+    server_thread = threading.Thread(target=run)
+    server_thread.start()
+
+    client_thread = threading.Thread(target=start_client)
+    client_thread.start()
